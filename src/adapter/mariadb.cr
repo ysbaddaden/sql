@@ -1,5 +1,5 @@
 class SQL
-  struct Adapter::MySQL < Adapter
+  struct Adapter::MariaDB < Adapter
     QUOTE_CHARACTER = '`'
 
     protected def to_sql_on_conflict(on_conflict : NamedTuple) : Nil
@@ -29,12 +29,7 @@ class SQL
         @sql << ')'
       end
     end
-
-    @[AlwaysInline]
-    protected def to_sql_returning(_) : NoReturn
-      raise "MySQL doesn't support RETURNING statements"
-    end
   end
 
-  Adapter.register("mysql", Adapter::MySQL)
+  Adapter.register("mariadb", Adapter::MariaDB)
 end
