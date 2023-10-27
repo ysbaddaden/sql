@@ -1,0 +1,39 @@
+name: Continuous Integration
+
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+    branches:
+      - "**"
+
+  pull_request:
+    branches:
+      - "**:**"
+
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  format:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: crystal-lang/install-crystal@v1
+      - run: crystal tool format src test
+
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: crystal-lang/install-crystal@v1
+      - run: shards install
+      - run: make test
+
+  test_mt:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: crystal-lang/install-crystal@v1
+      - run: shards install
+      - run: make test CRFLAGS="-Dpreview_mt"
