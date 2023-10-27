@@ -1,4 +1,3 @@
-require "db"
 require "uri"
 require "uuid"
 require "./dsl"
@@ -11,7 +10,6 @@ class SQL
     alias ValueType = {{ number_types.join(" | ").id }} | Bool | Time | UUID | String | Bytes | Nil
   {% end %}
 
-  # protected getter db : DB::Database
   protected getter adapter : SQL::Adapter.class
 
   def self.new(uri : String) : self
@@ -20,13 +18,9 @@ class SQL
 
   def self.new(uri : URI) : self
     adapter_name = uri.scheme.not_nil!
-    # uri.scheme = "mysql" if uri.scheme == "mariadb"
-    # new DB.open(uri), Adapter.for(uri.scheme.not_nil!)
     new Adapter.for(adapter_name)
   end
 
-  # def initialize(@db, @adapter)
-  # end
   def initialize(@adapter)
   end
 

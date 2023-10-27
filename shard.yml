@@ -4,18 +4,8 @@ version: 0.0.1
 authors:
   - Julien Portalier <julien@portalier.com>
 
-dependencies:
-  db:
-    github: crystal-lang/crystal-db
-
 development_dependencies:
   minitest:
     github: ysbaddaden/minitest.cr
-  mysql:
-    github: crystal-lang/crystal-mysql
-  pg:
-    github: will/crystal-pg
-  sqlite3:
-    github: crystal-lang/crystal-sqlite3
 
 license: Apache-2.0
