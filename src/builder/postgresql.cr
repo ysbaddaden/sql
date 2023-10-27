@@ -1,10 +1,21 @@
 class SQL
-  struct Adapter::SQLite3 < Adapter
+  struct Builder::PostgreSQL < Builder
+    protected def to_sql_statement_placeholder(value : ValueType) : Nil
+      if index = @args.index(value)
+        @sql << '$'
+        @sql << (index + 1)
+      else
+        @args << value
+        @sql << '$'
+        @sql << @args.size
+      end
+    end
+
     protected def to_sql_on_conflict(on_conflict : Symbol) : Nil
       if on_conflict == :nothing
         @sql << " ON CONFLICT DO NOTHING"
       else
-        raise "Error: expected :nothing but got #{on_conflict}"
+        raise "Error: expected :nothing or :ignore but got #{on_conflict}"
       end
     end
 
@@ -31,11 +42,12 @@ class SQL
         @sql << ", " unless i == 0
         @sql << quote(column)
         @sql << " = "
-        @sql << "excluded."
+        @sql << "EXCLUDED."
         @sql << quote(column)
       end
     end
   end
 
-  Adapter.register("sqlite3", Adapter::SQLite3)
+  Builder.register("postgres", Builder::PostgreSQL)
+  Builder.register("postgresql", Builder::PostgreSQL)
 end

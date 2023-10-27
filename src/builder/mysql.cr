@@ -1,5 +1,5 @@
 class SQL
-  struct Adapter::MySQL < Adapter
+  struct Builder::MySQL < Builder
     QUOTE_CHARACTER = '`'
 
     protected def to_sql_on_conflict(on_conflict : NamedTuple) : Nil
@@ -35,5 +35,5 @@ class SQL
     end
   end
 
-  Adapter.register("mysql", Adapter::MySQL)
+  Builder.register("mysql", Builder::MySQL)
 end

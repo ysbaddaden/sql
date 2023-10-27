@@ -1,15 +1,19 @@
 class SQL
-  abstract struct Adapter
+  abstract struct Builder
     QUOTE_CHARACTER = '"'
 
-    @@adapters = {} of String => Adapter.class
+    @@adapters = {} of String => Builder.class
 
-    def self.register(name : String, klass : Adapter.class)
+    def self.register(name : String, klass : Builder.class)
       @@adapters[name] = klass
     end
 
-    def self.for(name : String) : Adapter.class
+    def self.fetch(name : String) : Builder.class
       @@adapters[name]?.not_nil! "Unknown SQL adapter: #{name}"
+    end
+
+    def self.fetch(name : Nil) : NoReturn
+      name.not_nil! "Unknown SQL adapter: #{name}"
     end
 
     def initialize
@@ -33,7 +37,7 @@ class SQL
         in Tuple
           to_sql_join(*join)
         in Enumerable
-          join.each { |join| to_sql_join(*join) }
+          join.each { |j| to_sql_join(*j) }
         end
       end
 

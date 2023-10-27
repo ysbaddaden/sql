@@ -1,7 +1,7 @@
 require "uri"
 require "uuid"
 require "./dsl"
-require "./adapter"
+require "./builder"
 
 class SQL
   {% begin %}
@@ -10,33 +10,30 @@ class SQL
     alias ValueType = {{ number_types.join(" | ").id }} | Bool | Time | UUID | String | Bytes | Nil
   {% end %}
 
-  protected getter adapter : SQL::Adapter.class
-
   def self.new(uri : String) : self
     new URI.parse(uri)
   end
 
   def self.new(uri : URI) : self
-    adapter_name = uri.scheme.not_nil!
-    new Adapter.for(adapter_name)
+    new Builder.fetch(uri.scheme)
   end
 
-  def initialize(@adapter)
+  def initialize(@builder_class : SQL::Builder.class)
   end
 
   def select(&) : {String, Array(ValueType)}
-    @adapter.new.select(with DSL.new yield)
+    @builder_class.new.select(with DSL.new yield)
   end
 
   def insert(&) : {String, Array(ValueType)}
-    @adapter.new.insert(with DSL.new yield)
+    @builder_class.new.insert(with DSL.new yield)
   end
 
   def update(&) : {String, Array(ValueType)}
-    @adapter.new.update(with DSL.new yield)
+    @builder_class.new.update(with DSL.new yield)
   end
 
   def delete(&)
-    @adapter.new.delete(with DSL.new yield)
+    @builder_class.new.delete(with DSL.new yield)
   end
 end
