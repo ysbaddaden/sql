@@ -1,5 +1,5 @@
 require "./operators"
 
 class SQL
-  alias Expression = BinaryOperation | UnaryOperation | Column | Function | Symbol | ValueType | Raw
+  alias Expression = BinaryOperation | UnaryOperation | InOperation | Column | Function | Symbol | ValueType | Raw | Wrap
 end

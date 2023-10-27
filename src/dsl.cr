@@ -3,6 +3,7 @@ require "./expression"
 require "./table"
 require "./raw"
 require "./schemas"
+require "./wrap"
 
 class SQL
   struct DSL
@@ -21,6 +22,10 @@ class SQL
 
     def raw(sql : String) : Raw
       Raw.new(sql)
+    end
+
+    def column(name : Symbol) : Wrap
+      Wrap.new(name)
     end
   end
 end

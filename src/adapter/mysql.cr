@@ -30,8 +30,7 @@ class SQL
       end
     end
 
-    @[AlwaysInline]
-    protected def to_sql_returning(_) : NoReturn
+    protected def to_sql_returning(_x) : NoReturn
       raise "MySQL doesn't support RETURNING statements"
     end
   end
