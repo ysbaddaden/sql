@@ -46,7 +46,7 @@ class SQL
         super :users
       end
 
-      {% for col in %i[id group_id name] %}
+      {% for col in %i[id name] %}
         def {{col.id}} : Column
           Column.new(self, {{col}})
         end
@@ -64,7 +64,7 @@ class SQL
 end
 ```
 
-Then you can;
+Then you can:
 
 ```crystal
 require "db"
@@ -85,6 +85,9 @@ end
 db = DB.open("postgres://")
 db.query_all(*query)
 ```
+
+You can see has many examples of what's possible in the `test` folder (currently
+being written) or by reading the main `src/builder.cr` file.
 
 ## License
 
