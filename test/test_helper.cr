@@ -32,25 +32,11 @@ class SQL
         @__table_name = :users
       end
 
-      def id : Column
-        Column.new(self, :id)
-      end
-
-      def group_id : Column
-        Column.new(self, :group_id)
-      end
-
-      def email : Column
-        Column.new(self, :email)
-      end
-
-      def name : Column
-        Column.new(self, :name)
-      end
-
-      def created_at : Column
-        Column.new(self, :created_at)
-      end
+      {% for col in %i[user_id group_id email name created_at] %}
+        def {{col.id}} : Column
+          Column.new(self, {{col}})
+        end
+      {% end %}
     end
 
     struct Groups < Table
@@ -58,13 +44,11 @@ class SQL
         @__table_name = :groups
       end
 
-      def id : Column
-        Column.new(self, :id)
-      end
-
-      def name : Column
-        Column.new(self, :name)
-      end
+      {% for col in %i[group_id name created_at] %}
+        def {{col.id}} : Column
+          Column.new(self, {{col}})
+        end
+      {% end %}
     end
 
     @[AlwaysInline]

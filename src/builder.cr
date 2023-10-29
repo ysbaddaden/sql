@@ -1,6 +1,6 @@
 class SQL
   abstract struct Builder
-    QUOTE_CHARACTER = '"'
+    @@quote_character = '"'
 
     @@adapters = {} of String => Builder.class
 
@@ -67,6 +67,81 @@ class SQL
 
       if offset = query[:offset]?
         @sql << " OFFSET " << offset.to_i
+      end
+
+      {@sql.to_s, @args}
+    end
+
+    def insert(query : NamedTuple) : {String, Array(ValueType)}
+      @sql << "INSERT INTO "
+      to_sql query[:into]
+
+      if values = query[:values]?
+        case values
+        when NamedTuple, Hash
+          to_sql_insert_columns(values)
+          to_sql_insert_values(values)
+        when Enumerable
+          # TODO: BATCH INSERT
+          raise NotImplementedError.new("batch insertion isn't implemented (yet)")
+        else
+          raise "Expected Hash or NamedTuple but got #{values.class.name}"
+        end
+      else
+        @sql << " DEFAULT VALUES"
+      end
+
+      if on_conflict = query[:on_conflict]?
+        to_sql_on_conflict(on_conflict)
+      end
+
+      if on_duplicate_key_update = query[:on_duplicate_key_update]?
+        to_sql_on_duplicate_key_update(on_duplicate_key_update)
+      end
+
+      if returning = query[:returning]?
+        to_sql_returning(returning)
+      end
+
+      {@sql.to_s, @args}
+    end
+
+    # Identical to `#insert` but with transparent support for cross database for
+    # `ON CONFLICT DO UPDATE SET` / `ON DUPLICATE KEY UPDATE`.
+    # def upsert(query : NamedTuple) : {String, Array(ValueType)}
+    #   TODO: upsert
+    # end
+
+    def update(query : NamedTuple) : {String, Array(ValueType)}
+      @sql << "UPDATE "
+      to_sql query[:update]
+
+      @sql << " SET "
+      to_sql_update_set(query[:set])
+
+      if where = query[:where]?
+        @sql << " WHERE "
+        to_sql_where(where)
+      end
+
+      if returning = query[:returning]?
+        to_sql_returning(returning)
+      end
+
+      {@sql.to_s, @args}
+    end
+
+    def delete(query : NamedTuple) : {String, Array(ValueType)}
+      @sql << "DELETE FROM "
+      to_sql query[:from]
+
+      if where = query[:where]?
+        @sql << " WHERE "
+        to_sql_where(where)
+      end
+
+      if returning = query[:returning]?
+        to_sql_returning(returning)
       end
 
       {@sql.to_s, @args}
@@ -199,46 +274,11 @@ class SQL
       to_sql order_by
     end
 
-    def insert(query : NamedTuple) : {String, Array(ValueType)}
-      @sql << "INSERT INTO "
-      to_sql query[:into]
-
-      if values = query[:values]?
-        case values
-        when NamedTuple, Hash
-          to_sql_insert_columns(values)
-          to_sql_insert_values(values)
-        when Enumerable
-          # TODO: BATCH INSERT
-          raise NotImplementedError.new("batch insertion isn't implemented (yet)")
-        else
-          raise "Expected Hash or NamedTuple but got #{values.class.name}"
-        end
-      else
-        @sql << " DEFAULT VALUES"
-      end
-
-      if on_conflict = query[:on_conflict]?
-        to_sql_on_conflict(on_conflict)
-      end
-
-      if returning = query[:returning]?
-        to_sql_returning(returning)
-      end
-
-      {@sql.to_s, @args}
-    end
-
-    protected def to_sql_returning(returning) : Nil
-      @sql << " RETURNING "
-      to_sql returning
-    end
-
     protected def to_sql_insert_columns(values : Hash) : Nil
       @sql << " ("
       values.each_with_index do |(column, _), i|
         @sql << ", " unless i == 0
-        to_sql column
+        to_sql_column_name(column)
       end
       @sql << ')'
     end
@@ -270,41 +310,6 @@ class SQL
       @sql << ')'
     end
 
-    def update(query : NamedTuple) : {String, Array(ValueType)}
-      @sql << "UPDATE "
-      to_sql query[:update]
-
-      @sql << " SET "
-      to_sql_update_set(query[:set])
-
-      if where = query[:where]?
-        @sql << " WHERE "
-        to_sql_where(where)
-      end
-
-      if returning = query[:returning]?
-        to_sql_returning(returning)
-      end
-
-      {@sql.to_s, @args}
-    end
-
-    def delete(query : NamedTuple) : {String, Array(ValueType)}
-      @sql << "DELETE FROM "
-      to_sql query[:from]
-
-      if where = query[:where]?
-        @sql << " WHERE "
-        to_sql_where(where)
-      end
-
-      if returning = query[:returning]?
-        to_sql_returning(returning)
-      end
-
-      {@sql.to_s, @args}
-    end
-
     protected def to_sql_where(conditions : Enumerable) : Nil
       conditions.each_with_index do |condition, i|
         @sql << " AND " unless i == 0
@@ -319,7 +324,7 @@ class SQL
     protected def to_sql_update_set(update : Hash) : Nil
       update.each_with_index do |(column, value), i|
         @sql << ", " unless i == 0
-        to_sql column
+        to_sql_column_name column
         @sql << " = "
         to_sql value
       end
@@ -332,6 +337,26 @@ class SQL
         @sql << " = "
         to_sql value
       end
+    end
+
+    protected def to_sql_column_list(*columns : Column | Symbol | Wrap) : Nil
+      columns.each_with_index do |column, i|
+        @sql << ", " unless i == 0
+        to_sql_column_name(column)
+      end
+    end
+
+    protected def to_sql_column_name(column : Symbol | Wrap) : Nil
+      quote column
+    end
+
+    protected def to_sql_column_name(column : Column) : Nil
+      quote column.name
+    end
+
+    protected def to_sql_returning(returning) : Nil
+      @sql << " RETURNING "
+      to_sql returning
     end
 
     protected def to_sql(expressions : Enumerable) : Nil
@@ -427,9 +452,9 @@ class SQL
       if name == :*
         @sql << '*'
       else
-        @sql << QUOTE_CHARACTER
-        @sql << name.to_s.gsub(QUOTE_CHARACTER, "\\#{QUOTE_CHARACTER}")
-        @sql << QUOTE_CHARACTER
+        @sql << @@quote_character
+        @sql << name.to_s.gsub(@@quote_character, "\\#{@@quote_character}")
+        @sql << @@quote_character
       end
     end
 

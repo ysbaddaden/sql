@@ -2,7 +2,7 @@
 
 A DSL to generate SQL queries for different database servers.
 
-## Goals:
+## Goals
 
 - simplify writing your queries, for example using a `NamedTuple` or `Hash`
   instead of ordering your args manually and counting your `?` in raw SQL
@@ -14,6 +14,10 @@ A DSL to generate SQL queries for different database servers.
 
 - reduce SQL extension discrepencies between database servers, such as `ON
   CONFLIT DO` (Postgres, SQLite3) versus `ON DUPLICATE KEY` (MySQL).
+
+### Non Goals
+
+- becoming an ORM
 
 ## Status
 
@@ -30,8 +34,8 @@ migrations).
 class SQL
   module Schemas
     struct Users < Table
-      def initialize(@_as : Symbol)
-        super :users
+      def initialize(@__table_as = nil)
+        @__table_name = :users
       end
 
       {% for col in %i[id group_id name] %}
@@ -42,8 +46,8 @@ class SQL
     end
 
     struct Groups < Table
-      def initialize(@_as : Symbol)
-        super :users
+      def initialize(@__table_as = nil)
+        @__table_name = :groups
       end
 
       {% for col in %i[id name] %}

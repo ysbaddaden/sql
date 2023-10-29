@@ -1,18 +1,9 @@
 class SQL
   struct Builder::MariaDB < Builder
-    QUOTE_CHARACTER = '`'
+    @@quote_character = '`'
 
-    protected def to_sql_on_conflict(on_conflict : NamedTuple) : Nil
-      if update = on_duplicate_key[:update]?
-        to_sql_on_duplicate_key_update(update)
-      else
-        raise "Error: expected NamedTuple(update:) but got #{on_conflict.class.name}"
-      end
-    end
-
-    protected def to_sql_on_duplicate_key_update(update : NamedTuple) : Nil
-      @sql << " ON DUPLICATE KEY UPDATE "
-      to_sql_update_set(update)
+    protected def to_sql_on_conflict(on_conflict) : Nil
+      raise "MySQL doesn't support ON CONFLICT clauses"
     end
 
     protected def to_sql_on_duplicate_key_update(update : Hash) : Nil
@@ -20,12 +11,23 @@ class SQL
       to_sql_update_set(update)
     end
 
+    protected def to_sql_on_duplicate_key_update(update : NamedTuple) : Nil
+      @sql << " ON DUPLICATE KEY UPDATE "
+      to_sql_update_set(update)
+    end
+
+    protected def to_sql_on_duplicate_key_update(update : Symbol) : Nil
+      to_sql_on_duplicate_key_update({update})
+    end
+
     protected def to_sql_on_duplicate_key_update(update : Enumerable(Symbol)) : Nil
+      @sql << " ON DUPLICATE KEY UPDATE "
+
       update.each_with_index do |column, i|
         @sql << ", " unless i == 0
-        @sql << quote(column)
+        to_sql column
         @sql << " = VALUES("
-        @sql << quote(column)
+        to_sql column
         @sql << ')'
       end
     end

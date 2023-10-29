@@ -1,39 +1,60 @@
 class SQL
   struct Builder::SQLite3 < Builder
-    protected def to_sql_on_conflict(on_conflict : Symbol) : Nil
-      if on_conflict == :nothing
-        @sql << " ON CONFLICT DO NOTHING"
-      else
-        raise "Error: expected :nothing but got #{on_conflict}"
+    protected def to_sql_on_conflict(on_conflict) : Nil
+      @sql << " ON CONFLICT"
+
+      case on_conflict
+      in Symbol
+        to_sql_on_conflict_action(on_conflict)
+      in Tuple
+        @sql << " ("
+        to_sql_column_list(on_conflict[0])
+        @sql << ')'
+        to_sql_on_conflict_action(on_conflict[1])
       end
     end
 
-    protected def to_sql_on_conflict(on_conflict : NamedTuple) : Nil
-      if update = on_conflict[:update]?
-        to_sql_on_conflict_update(update)
+    protected def to_sql_on_conflict_action(action : Symbol) : Nil
+      if action == :do_nothing
+        @sql << " DO NOTHING"
       else
-        raise "Error: expected NamedTuple(update:) but got #{on_conflict.class.name}"
+        raise "Error: expected :do_nothing but got #{action.inspect}"
       end
     end
 
-    protected def to_sql_on_conflict_update(update : NamedTuple) : Nil
-      @sql << " ON CONFLICT DO UPDATE SET "
+    protected def to_sql_on_conflict_action(action : NamedTuple) : Nil
+      if update = action[:do_update_set]?
+        @sql << " DO UPDATE SET "
+        to_sql_on_conflict_do_update_set(update)
+      else
+        raise "Error: missing :do_update_set action"
+      end
+    end
+
+    protected def to_sql_on_conflict_do_update_set(update : NamedTuple) : Nil
       to_sql_update_set(update)
     end
 
-    protected def to_sql_on_conflict_update(update : Hash) : Nil
-      @sql << " ON CONFLICT DO UPDATE SET "
+    protected def to_sql_on_conflict_do_update_set(update : Hash) : Nil
       to_sql_update_set(update)
     end
 
-    protected def to_sql_on_conflict_update(update : Enumerable(Symbol)) : Nil
+    protected def to_sql_on_conflict_do_update_set(column : Symbol) : Nil
+      to_sql_on_conflict_do_update_set({column})
+    end
+
+    protected def to_sql_on_conflict_do_update_set(update : Enumerable(Symbol)) : Nil
       update.each_with_index do |column, i|
         @sql << ", " unless i == 0
         @sql << quote(column)
         @sql << " = "
-        @sql << "excluded."
+        @sql << "EXCLUDED."
         @sql << quote(column)
       end
+    end
+
+    protected def to_sql_on_duplicate_key_update(update) : Nil
+      raise "SQLite3 doesn't support ON DUPLICATE KEY UPDATE clauses"
     end
   end
 

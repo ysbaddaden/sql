@@ -24,9 +24,9 @@ class SelectTest < Minitest::Test
     assert_query(%(SELECT "users".* FROM "users"), sql.select { {select: users, from: users} })
     assert_query(%(SELECT "users".* FROM "users"), sql.select { {select: {users}, from: users} })
 
-    assert_query(%(SELECT "users"."id", "users"."name" FROM "users"), sql.select do
+    assert_query(%(SELECT "users"."user_id", "users"."name" FROM "users"), sql.select do
       {
-        select: {users.id, users.name},
+        select: {users.user_id, users.name},
         from:   users,
       }
     end)
@@ -72,18 +72,18 @@ class SelectTest < Minitest::Test
   end
 
   def test_join
-    assert_query(%(SELECT "users".*, "groups"."name" AS "group_name" FROM "users" INNER JOIN "groups" ON "users"."group_id" = "groups"."id"), sql.select do
+    assert_query(%(SELECT "users".*, "groups"."name" AS "group_name" FROM "users" INNER JOIN "groups" ON "users"."group_id" = "groups"."group_id"), sql.select do
       {
         select: {users => nil, groups.name => :group_name},
         from:   users,
-        join:   {:inner, groups, {on: users.group_id == groups.id}},
+        join:   {:inner, groups, {on: users.group_id == groups.group_id}},
       }
     end)
 
-    assert_query(%(SELECT * FROM "users" INNER JOIN "groups" ON "users"."group_id" = "groups"."id"), sql.select do
+    assert_query(%(SELECT * FROM "users" INNER JOIN "groups" ON "users"."group_id" = "groups"."group_id"), sql.select do
       {
         from: users,
-        join: {groups, {on: users.group_id == groups.id}},
+        join: {groups, {on: users.group_id == groups.group_id}},
       }
     end)
 
@@ -139,12 +139,12 @@ class SelectTest < Minitest::Test
   end
 
   def test_join_retains_declaration_order
-    assert_query(%(SELECT * FROM "users" LEFT JOIN "users" AS "u" ON "u"."name" = "users"."name" INNER JOIN "groups" ON "users"."group_id" = "groups"."id"), sql.select do
+    assert_query(%(SELECT * FROM "users" LEFT JOIN "users" AS "u" ON "u"."name" = "users"."name" INNER JOIN "groups" ON "users"."group_id" = "groups"."group_id"), sql.select do
       {
         from: users,
         join: [
           {:left, u = users(:u), {on: u.name == users.name}},
-          {:inner, groups, {on: users.group_id == groups.id}},
+          {:inner, groups, {on: users.group_id == groups.group_id}},
         ],
       }
     end)
