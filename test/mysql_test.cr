@@ -77,5 +77,15 @@ class MysqlTest < Minitest::Test
         }
       end
     end
+
+    assert_raises do
+      sql.update do
+        {
+          update:    users,
+          set:       {email: "jane.doe@example.org"},
+          returning: :*,
+        }
+      end
+    end
   end
 end

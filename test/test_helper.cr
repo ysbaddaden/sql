@@ -44,7 +44,7 @@ class SQL
         @__table_name = :groups
       end
 
-      {% for col in %i[group_id name created_at] %}
+      {% for col in %i[group_id name counter created_at updated_at] %}
         def {{col.id}} : Column
           Column.new(self, {{col}})
         end
