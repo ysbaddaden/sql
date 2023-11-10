@@ -1,5 +1,7 @@
 class SQL
-  struct Builder::PostgreSQL < Builder
+  class Builder::PostgreSQL < Builder
+    @@positional_arguments = false
+
     protected def to_sql_statement_placeholder(value : ValueType) : Nil
       if index = @args.index(value)
         @sql << '$'

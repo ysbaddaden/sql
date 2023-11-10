@@ -9,17 +9,31 @@ class Minitest::Test
     SQL.new("postgres://")
   end
 
-  def assert_query(expected_sql : String, expected_args : Array, actual : {String, Array(SQL::ValueType)}, message = nil, file = __FILE__, line = __LINE__)
+  # def assert_query(expected_sql : String, expected_args : Array, actual : {String, Array(SQL::ValueType)}, message = nil, file = __FILE__, line = __LINE__)
+  #   {% if flag?(:DEBUG) %}
+  #     puts actual[0]
+  #     puts actual[1].inspect
+  #     puts
+  #   {% end %}
+  #   assert_equal({expected_sql, expected_args}, actual, message, file, line)
+  # end
+
+  # def assert_query(expected : String, actual : {String, Array(SQL::ValueType)}, message = nil, file = __FILE__, line = __LINE__)
+  #   assert_query(expected, [] of SQL::ValueType, actual, message, file, line)
+  # end
+
+  def assert_format(expected_sql : String, expected_args : Array, message = nil, file = __FILE__, line = __LINE__, &)
     {% if flag?(:DEBUG) %}
       puts actual[0]
       puts actual[1].inspect
       puts
     {% end %}
+    actual = sql.format { |q| with q yield q }
     assert_equal({expected_sql, expected_args}, actual, message, file, line)
   end
 
-  def assert_query(expected : String, actual : {String, Array(SQL::ValueType)}, message = nil, file = __FILE__, line = __LINE__)
-    assert_query(expected, [] of SQL::ValueType, actual, message, file, line)
+  def assert_format(expected : String, message = nil, file = __FILE__, line = __LINE__, &)
+    assert_format(expected, [] of SQL::ValueType, message, file, line) { |q| with q yield q }
   end
 end
 
@@ -28,8 +42,8 @@ class SQL
     # TODO: automatically generate the schemas from the database
 
     struct Users < Table
-      def initialize(@__table_as = nil)
-        @__table_name = :users
+      def initialize(as name : Symbol? = nil)
+        super :users, name
       end
 
       {% for col in %i[user_id group_id email name created_at] %}
@@ -40,8 +54,8 @@ class SQL
     end
 
     struct Groups < Table
-      def initialize(@__table_as = nil)
-        @__table_name = :groups
+      def initialize(as name : Symbol? = nil)
+        super :groups, name
       end
 
       {% for col in %i[group_id name counter created_at updated_at] %}

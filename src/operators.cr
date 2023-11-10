@@ -56,8 +56,16 @@ class SQL
       InOperation.new(self, "IN", [*other] of ValueType)
     end
 
+    def in(other : Builder) : InOperation
+      InOperation.new(self, "IN", other)
+    end
+
     def not_in(other : Enumerable) : InOperation
       InOperation.new(self, "NOT IN", [*other] of ValueType)
+    end
+
+    def not_in(other : Builder) : InOperation
+      InOperation.new(self, "NOT IN", other)
     end
 
     # Chain a custom binary operator. For example:

@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+  my:
+    image: mysql:5.7
+    environment:
+      MYSQL_DATABASE: sql_test
+      MYSQL_ROOT_PASSWORD: secret
+    ports:
+      - "3306:3306"
+
+  pg:
+    image: postgres:12-alpine
+    environment:
+      POSTGRES_DB: sql_test
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"

@@ -12,8 +12,8 @@ A DSL to generate SQL queries for different database servers.
   placeholders, or MySQL using backticks instead of double quotes for quoting
   column and table names;
 
-- reduce SQL extension discrepencies between database servers, such as `ON
-  CONFLIT DO` (Postgres, SQLite3) versus `ON DUPLICATE KEY` (MySQL).
+- try to reduce SQL extension discrepencies between database servers, such as
+  `ON CONFLIT DO` (Postgres, SQLite3) versus `ON DUPLICATE KEY` (MySQL).
 
 ### Non Goals
 
@@ -22,7 +22,7 @@ A DSL to generate SQL queries for different database servers.
 ## Status
 
 The SQL shard is in preliminary alpha. The basis shouldn't change much, but a
-lot is still needed.
+lot is still has to be implemented.
 
 ## Examples
 

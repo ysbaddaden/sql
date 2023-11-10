@@ -1,5 +1,5 @@
 class SQL
-  struct Builder::MySQL < Builder
+  class Builder::MySQL < Builder
     @@quote_character = '`'
 
     protected def to_sql_on_conflict(on_conflict) : Nil

@@ -1,6 +1,22 @@
 version: 2.0
 shards:
+  db:
+    git: https://github.com/crystal-lang/crystal-db.git
+    version: 0.12.0
+
   minitest:
     git: https://github.com/ysbaddaden/minitest.cr.git
     version: 1.2.3
+
+  mysql:
+    git: https://github.com/crystal-lang/crystal-mysql.git
+    version: 0.15.0
+
+  pg:
+    git: https://github.com/ysbaddaden/crystal-pg.git
+    version: 0.27.0+git.commit.a00c298981f550b44d1338ec9a83bb52d16ac49d
+
+  sqlite3:
+    git: https://github.com/crystal-lang/crystal-sqlite3.git
+    version: 0.20.0
 

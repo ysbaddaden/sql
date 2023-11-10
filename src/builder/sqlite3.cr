@@ -1,5 +1,5 @@
 class SQL
-  struct Builder::SQLite3 < Builder
+  class Builder::SQLite3 < Builder
     protected def to_sql_on_conflict(on_conflict) : Nil
       @sql << " ON CONFLICT"
 

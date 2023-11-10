@@ -9,5 +9,17 @@ class SQL
 
     def initialize(@name, @args = nil)
     end
+
+    def over(partition : Builder) : Over
+      Over.new(self, partition)
+    end
+  end
+
+  class Over
+    getter fn : Function
+    getter partition : Builder
+
+    def initialize(@fn, @partition)
+    end
   end
 end
