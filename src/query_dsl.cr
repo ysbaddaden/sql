@@ -7,7 +7,7 @@ require "./schemas"
 require "./wrap"
 
 class SQL
-  struct DSL
+  struct QueryDSL
     include Helpers
     include Functions
 

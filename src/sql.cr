@@ -1,6 +1,6 @@
 require "uri"
 require "uuid"
-require "./dsl"
+require "./query_dsl"
 require "./builder"
 
 class SQL
@@ -22,7 +22,7 @@ class SQL
   end
 
   def format(&) : {String, Array(ValueType)}
-    dsl = DSL.new(@builder_class.new)
+    dsl = QueryDSL.new(@builder_class.new)
     builder = yield dsl
     {builder.as_sql, builder.args}
   end
