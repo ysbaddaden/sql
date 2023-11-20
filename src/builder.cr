@@ -5,13 +5,6 @@ class SQL
   # TODO: SET (column, ...) = (sub-select)
   abstract class Builder
     @@quote_character = '"'
-    @@positional_arguments = false
-
-    # :nodoc:
-    def self.positional_arguments? : Bool
-      @@positional_arguments
-    end
-
     @@registers = {} of String => Builder.class
 
     def self.register(name : String, klass : Builder.class)
@@ -26,16 +19,20 @@ class SQL
       name.not_nil! "Unknown SQL driver: #{name}"
     end
 
-    getter? positional_arguments : Bool
-    protected getter args : Array(ValueType)
+    # The IO object to generate the SQL string to.
+    getter sql : String::Builder
+
+    # The list of arguments to fill the prepared statement placeholders.
+    getter args : Array(ValueType)
 
     # :nodoc:
-    def initialize(@args = Array(ValueType).new, @positional_arguments = true)
-      @sql = ::String::Builder.new(capacity: 256)
+    def initialize
+      @sql = String::Builder.new(capacity: 256)
+      @args = Array(ValueType).new
     end
 
-    # :nodoc:
-    protected def as_sql : String
+    # Returns the generated SQL as a `String`. Can only be called once.
+    def as_sql : String
       @sql.to_s
     end
 
@@ -45,7 +42,11 @@ class SQL
         @sql << ", " unless i == 0
         quote name
         @sql << " AS ("
-        to_sql query
+        if query.is_a?(Proc)
+          query.call
+        else
+          to_sql query
+        end
         @sql << ')'
       end
       @sql << ' '
@@ -82,6 +83,10 @@ class SQL
       self
     end
 
+    def select(**columns) : self
+      self.select(columns)
+    end
+
     def select(*columns) : self
       @sql << "SELECT "
       to_sql_list(columns) { |column| to_sql_select(column) }
@@ -94,8 +99,8 @@ class SQL
         quote column.table_name
         @sql << '.'
         quote column.name
-      in Table
-        quote column.__table_name
+      in Table, Table.class
+        quote column.table_name
         @sql << '.' << '*'
       in Symbol
         quote column
@@ -116,26 +121,26 @@ class SQL
       self
     end
 
-    def join(table : Table|Symbol) : self
+    def join(table : Table.class|Table|Symbol) : self
       @sql << " JOIN "
       to_sql table
       self
     end
 
-    def inner_join(table : Table|Symbol) : self
+    def inner_join(table : Table.class|Table|Symbol) : self
       @sql << " INNER JOIN "
       to_sql table
       self
     end
 
     {% for method in %w[left right full] %}
-      def {{method.id}}_join(table : Table|Symbol) : self
+      def {{method.id}}_join(table : Table.class|Table|Symbol) : self
         @sql << " {{method.upcase.id}} JOIN "
         to_sql table
         self
       end
 
-      def {{method.id}}_outer_join(table : Table|Symbol) : self
+      def {{method.id}}_outer_join(table : Table.class|Table|Symbol) : self
         @sql << " {{method.upcase.id}} OUTER JOIN "
         to_sql table
         self
@@ -157,7 +162,7 @@ class SQL
 
     def where(conditions) : self
       @sql << " WHERE "
-      to_sql_where conditions
+      reset_nested_expression { to_sql_where conditions }
       self
     end
 
@@ -175,7 +180,7 @@ class SQL
 
     def having(conditions) : self
       @sql << " HAVING "
-      to_sql_where conditions
+      reset_nested_expression { to_sql_where conditions }
       self
     end
 
@@ -261,66 +266,158 @@ class SQL
       self
     end
 
-    # def insert(query : NamedTuple) : {String, Array(ValueType)}
-    #   @sql << "INSERT INTO "
-    #   to_sql query[:into]
+    def insert_into(table, columns : Enumerable? = nil) : self
+      @sql << "INSERT INTO "
+      to_sql table
 
-    #   if values = query[:values]?
-    #     case values
-    #     when NamedTuple, Hash
-    #       to_sql_insert_columns(values)
-    #       to_sql_insert_values(values)
-    #     when Enumerable
-    #       # TODO: BATCH INSERT
-    #       raise NotImplementedError.new("batch insertion isn't implemented (yet)")
-    #     else
-    #       raise "Expected Hash or NamedTuple but got #{values.class.name}"
-    #     end
-    #   else
-    #     @sql << " DEFAULT VALUES"
-    #   end
+      if columns
+        @sql << " ("
+        to_sql_list(columns) { |column| to_sql_column_name(column) }
+        @sql << ')'
+      end
 
-    #   if on_conflict = query[:on_conflict]?
-    #     to_sql_on_conflict(on_conflict)
-    #   end
+      self
+    end
 
-    #   if on_duplicate_key_update = query[:on_duplicate_key_update]?
-    #     to_sql_on_duplicate_key_update(on_duplicate_key_update)
-    #   end
+    def insert_into(table, columns : Enumerable? = nil, &) : self
+      insert_into(table, columns)
+      @sql << ' '
+      yield
+      self
+    end
 
-    #   if returning = query[:returning]?
-    #     to_sql_returning(returning)
-    #   end
+    def values(values : Hash) : self
+      @sql << " ("
+      to_sql_list(values) { |column, _| to_sql_column_name(column) }
+      @sql << ')'
 
-    #   {@sql.to_s, @args}
+      @sql << " VALUES ("
+      to_sql_list(values) { |_, value| to_sql value }
+      @sql << ')'
+
+      self
+    end
+
+    def values(values : NamedTuple) : self
+      @sql << " ("
+      to_sql_list(values) { |column_name, _| quote column_name }
+      @sql << ')'
+
+      @sql << " VALUES ("
+      to_sql_list(values) { |_, value| to_sql value }
+      @sql << ')'
+
+      self
+    end
+
+    def values(**values) : self
+      self.values(values)
+    end
+
+    def values(batch : Enumerable) : self
+      @sql << " VALUES "
+
+      to_sql_list(batch) do |values|
+        @sql << '('
+        to_sql_list(values)
+        @sql << ')'
+      end
+
+      self
+    end
+
+    def default_values : self
+      @sql << " DEFAULT VALUES"
+      self
+    end
+
+    def on_duplicate_key_update(values : Hash) : self
+      @sql << " ON DUPLICATE KEY UPDATE "
+      to_sql_set(values)
+      self
+    end
+
+    def on_duplicate_key_update(values : NamedTuple) : self
+      @sql << " ON DUPLICATE KEY UPDATE "
+      to_sql_set(values)
+      self
+    end
+
+    def on_duplicate_key_update(columns : Enumerable) : Nil
+      @sql << " ON DUPLICATE KEY UPDATE "
+
+      to_sql_list(columns) do |column|
+        to_sql_column_name column
+        @sql << " = VALUES("
+        to_sql_column_name column
+        @sql << ')'
+      end
+
+      self
+    end
+
+    def on_duplicate_key_update(*columns) : self
+      on_conflict_do_update(columns)
+    end
+
+    def on_conflict(column : Column | Symbol | Wrap | Raw | Nil = nil) : self
+      @sql << " ON CONFLICT"
+
+      if column
+        @sql << " ("
+        to_sql_column_name(column)
+        @sql << ')'
+      end
+
+      self
+    end
+
+    def on_constraint(name : Symbol | Wrap | Raw) : self
+      @sql << " ON CONSTRAINT "
+      to_sql name
+      self
+    end
+
+    def do_nothing : self
+      @sql << " DO NOTHING"
+      self
+    end
+
+    def do_update_set(values : Hash) : self
+      @sql << " DO UPDATE SET "
+      to_sql_set(values)
+      self
+    end
+
+    def do_update_set(values : NamedTuple) : self
+      @sql << " DO UPDATE SET "
+      to_sql_set(values)
+      self
+    end
+
+    def do_update_set(columns : Enumerable) : self
+      @sql << " DO UPDATE SET "
+
+      to_sql_list(columns) do |column|
+        to_sql_column_name column
+        @sql << " = EXCLUDED."
+        to_sql_column_name column
+      end
+
+      self
+    end
+
+    def do_update_set(*columns) : self
+      do_update_set(columns)
+    end
+
+    # Identical to `#insert` but with transparent support for cross database for
+    # `ON CONFLICT DO UPDATE SET` / `ON DUPLICATE KEY UPDATE`.
+    # def upsert(query : NamedTuple) : {String, Array(ValueType)}
+    #   TODO: upsert
     # end
 
-    # # Identical to `#insert` but with transparent support for cross database for
-    # # `ON CONFLICT DO UPDATE SET` / `ON DUPLICATE KEY UPDATE`.
-    # # def upsert(query : NamedTuple) : {String, Array(ValueType)}
-    # #   TODO: upsert
-    # # end
-
-    # def update(query : NamedTuple) : {String, Array(ValueType)}
-    #   @sql << "UPDATE "
-    #   to_sql query[:update]
-
-    #   @sql << " SET "
-    #   to_sql_update_set(query[:set])
-
-    #   if where = query[:where]?
-    #     @sql << " WHERE "
-    #     to_sql_where(where)
-    #   end
-
-    #   if returning = query[:returning]?
-    #     to_sql_returning(returning)
-    #   end
-
-    #   {@sql.to_s, @args}
-    # end
-
-    def update(table : Table|Symbol) : self
+    def update(table : Table.class|Table|Symbol) : self
       @sql << "UPDATE "
       to_sql table
       self
@@ -328,29 +425,30 @@ class SQL
 
     def set(columns : NamedTuple) : self
       @sql << " SET "
-
-      to_sql_list(columns) do |column, value|
-        quote column
-        @sql << " = "
-        to_sql_set_value(value)
-      end
-
+      to_sql_set(columns)
       self
     end
 
     def set(columns : Hash) : self
       @sql << " SET "
+      to_sql_set(columns)
+      self
+    end
 
-      to_sql_list(columns) do |column, value|
-        case column
-        in Column then quote column.name
-        in Symbol then quote column
-        end
+    protected def to_sql_set(values : NamedTuple) : Nil
+      to_sql_list(values) do |column, value|
+        quote column
         @sql << " = "
         to_sql_set_value(value)
       end
+    end
 
-      self
+    protected def to_sql_set(values : Hash) : Nil
+      to_sql_list(values) do |column, value|
+        to_sql_column_name(column)
+        @sql << " = "
+        to_sql_set_value(value)
+      end
     end
 
     protected def to_sql_set_value(value : Symbol) : Nil
@@ -371,86 +469,11 @@ class SQL
       self
     end
 
-    # def delete(query : NamedTuple) : {String, Array(ValueType)}
-    #   @sql << "DELETE FROM "
-    #   to_sql query[:from]
-
-    #   if where = query[:where]?
-    #     @sql << " WHERE "
-    #     to_sql_where(where)
-    #   end
-
-    #   if returning = query[:returning]?
-    #     to_sql_returning(returning)
-    #   end
-
-    #   {@sql.to_s, @args}
-    # end
-
-    # protected def to_sql_select(columns : Hash) : Nil
-    #   columns.each_with_index do |(column, _as), i|
-    #     @sql << ", " unless i == 0
-    #     to_sql column
-    #     @sql << ".*" if column.is_a?(Table)
-    #     if _as
-    #       @sql << " AS "
-    #       quote _as
-    #     end
-    #   end
-    # end
-
-    # protected def to_sql_select(columns : Enumerable) : Nil
-    #   columns.each_with_index do |column, i|
-    #     @sql << ", " unless i == 0
-    #     to_sql column
-    #     @sql << ".*" if column.is_a?(Table)
-    #   end
-    # end
-
-    # protected def to_sql_select(column : Table) : Nil
-    #   to_sql column
-    #   @sql << ".*"
-    # end
-
-    # protected def to_sql_select(columns) : Nil
-    #   to_sql columns
-    # end
-
-    # protected def to_sql_insert_columns(values : Hash) : Nil
-    #   @sql << " ("
-    #   values.each_with_index do |(column, _), i|
-    #     @sql << ", " unless i == 0
-    #     to_sql_column_name(column)
-    #   end
-    #   @sql << ')'
-    # end
-
-    # protected def to_sql_insert_columns(values : NamedTuple) : Nil
-    #   @sql << " ("
-    #   values.each_with_index do |column, _, i|
-    #     @sql << ", " unless i == 0
-    #     to_sql column
-    #   end
-    #   @sql << ')'
-    # end
-
-    # protected def to_sql_insert_values(values : Hash) : Nil
-    #   @sql << " VALUES ("
-    #   values.each_with_index do |(_, value), i|
-    #     @sql << ", " unless i == 0
-    #     to_sql value
-    #   end
-    #   @sql << ')'
-    # end
-
-    # protected def to_sql_insert_values(values : NamedTuple) : Nil
-    #   @sql << " VALUES ("
-    #   values.each_with_index do |_, value, i|
-    #     @sql << ", " unless i == 0
-    #     to_sql value
-    #   end
-    #   @sql << ')'
-    # end
+    def delete_from(table) : self
+      @sql << "DELETE FROM "
+      to_sql table
+      self
+    end
 
     protected def to_sql_where(conditions : Enumerable) : Nil
       conditions.each_with_index do |condition, i|
@@ -462,24 +485,6 @@ class SQL
     protected def to_sql_where(conditions) : Nil
       to_sql conditions
     end
-
-    # protected def to_sql_update_set(update : Hash) : Nil
-    #   update.each_with_index do |(column, value), i|
-    #     @sql << ", " unless i == 0
-    #     to_sql_column_name column
-    #     @sql << " = "
-    #     to_sql value
-    #   end
-    # end
-
-    # protected def to_sql_update_set(update : NamedTuple) : Nil
-    #   update.each_with_index do |column_name, value, i|
-    #     @sql << ", " unless i == 0
-    #     quote(column_name)
-    #     @sql << " = "
-    #     to_sql value
-    #   end
-    # end
 
     protected def to_sql_list(list : Hash, &) : Nil
       list.each_with_index do |(key, value), i|
@@ -509,20 +514,13 @@ class SQL
       end
     end
 
-    # protected def to_sql_column_list(*columns : Column | Symbol | Wrap) : Nil
-    #   columns.each_with_index do |column, i|
-    #     @sql << ", " unless i == 0
-    #     to_sql_column_name(column)
-    #   end
-    # end
+    protected def to_sql_column_name(column : Raw | Symbol | Wrap) : Nil
+      to_sql column
+    end
 
-    # protected def to_sql_column_name(column : Symbol | Wrap) : Nil
-    #   quote column
-    # end
-
-    # protected def to_sql_column_name(column : Column) : Nil
-    #   quote column.name
-    # end
+    protected def to_sql_column_name(column : Column) : Nil
+      quote column.name
+    end
 
     protected def to_sql(expressions : Enumerable) : Nil
       to_sql_list(expressions)
@@ -549,16 +547,11 @@ class SQL
         case rhs = binary.rhs
         in Array(ValueType)
           to_sql_list(rhs) { |arg| to_sql_statement_placeholder(arg) }
-        in Builder
-          to_sql rhs
+        in Proc(Nil)
+          rhs.call
         end
         @sql << ')'
       end
-    end
-
-    protected def to_sql(builder : Builder) : Nil
-      @sql << builder.as_sql
-      @args += builder.args if positional_arguments?
     end
 
     protected def to_sql(unary : UnaryOperation) : Nil
@@ -569,29 +562,29 @@ class SQL
       end
     end
 
+    @[AlwaysInline]
     protected def to_sql(fn : Function) : Nil
-      @sql << fn.name
-      @sql << '('
-      if args = fn.args?
-        to_sql args
-      end
-      @sql << ')'
+      fn.to_sql(self)
     end
 
     protected def to_sql(over : Over) : Nil
       to_sql over.fn
       @sql << " OVER ("
-      to_sql over.partition
+      over.partition.call
       @sql << ')'
     end
 
     protected def to_sql(table : Table) : Nil
-      quote table.__table_name
+      quote table.table_name
 
-      if _as = table.__table_as?
+      if _as = table.table_alias?
         @sql << " AS "
         quote _as
       end
+    end
+
+    protected def to_sql(table : Table.class) : Nil
+      quote table.table_name
     end
 
     protected def to_sql(column : Column) : Nil
@@ -641,7 +634,7 @@ class SQL
 
     protected def quote(name : Symbol) : Nil
       if name == :*
-          @sql << '*'
+        @sql << '*'
       else
         @sql << @@quote_character
         @sql << name.to_s.gsub(@@quote_character, "\\#{@@quote_character}")
@@ -667,6 +660,13 @@ class SQL
         yield
         @nested = false
       end
+    end
+
+    protected def reset_nested_expression(&) : Nil
+      original_nested = @nested
+      @nested = false
+      yield
+      @nested = original_nested
     end
   end
 end

@@ -46,39 +46,23 @@ class SQL
 
     def generate_table_schemas(io : IO) : Nil
       io << "class SQL\n"
-      io << "  module TableSchemas\n"
+      io << "  module Schemas\n"
 
       tables.each_with_index do |table, i|
         klass_name = table.name.camelcase
 
         io << '\n' unless i == 0
         io << "    struct " << klass_name << " < ::SQL::Table\n"
-        io << "      def initialize(@__table_as = nil)\n"
-        io << "        @__table_name = :" << table.name << '\n'
-        io << "      end\n\n"
+        io << "      table_name " << table.name << '\n'
 
         columns(table.name).each_with_index do |column, j|
-          method_name = column.name.underscore
-
-          io << '\n' unless j == 0
-          io << "      def " << method_name << " : ::SQL::Column\n"
-          io << "        ::SQL::Column.new(self, :" << column.name << ")\n"
-          io << "      end\n"
+          io << "      column " << column.name << '\n'
         end
 
         io << "    end\n"
       end
 
-      tables.each_with_index do |table|
-        klass_name = table.name.camelcase
-        method_name = table.name.underscore
 
-        io << '\n'
-        io << "    @[AlwaysInline]\n"
-        io << "    def " << method_name << "(as name : Symbol? = nil) : " << klass_name << '\n'
-        io << "      " << klass_name << ".new(name)\n"
-        io << "    end\n"
-      end
 
       io << "  end\n"
       io << "end\n"

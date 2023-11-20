@@ -3,6 +3,8 @@ require "../sql"
 
 class SQL
   class InformationSchema::PostgreSQL < InformationSchema
+    include Helpers
+
     def tables : Array(InformationSchema::Table)
       sql, args = @sql.format do |q|
         q.select(:table_catalog, :table_schema, :table_name, :table_type)
@@ -20,8 +22,8 @@ class SQL
         q.select(:*)
           .from({:information_schema, :columns})
           .where((column(:table_schema) == "public")
-          .and(column(:table_catalog) == database_name)
-          .and(column(:table_name) == table_name))
+            .and(column(:table_catalog) == database_name)
+            .and(column(:table_name) == table_name))
           .order_by(:ordinal_position)
       end
       @db.query_all(sql, args: args, as: InformationSchema::Column)

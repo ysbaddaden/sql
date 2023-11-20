@@ -3,6 +3,12 @@ require "../sql"
 
 class SQL
   class InformationSchema::SQLite3 < InformationSchema
+    include Helpers
+    include Functions
+
+    register_function :pragma_table_info
+    # register_function :pragma_table_xinfo
+
     def tables : Array(InformationSchema::Table)
       tables = [] of InformationSchema::Table
 

@@ -22,24 +22,8 @@ class SQL
   end
 
   def format(&) : {String, Array(ValueType)}
-    dsl = DSL.new(@builder_class)
-    builder = with dsl yield dsl
+    dsl = DSL.new(@builder_class.new)
+    builder = yield dsl
     {builder.as_sql, builder.args}
   end
-
-  # def select(&) : {String, Array(ValueType)}
-  #   @builder_class.new.select(with DSL.new yield)
-  # end
-
-  # def insert(&) : {String, Array(ValueType)}
-  #   @builder_class.new.insert(with DSL.new yield)
-  # end
-
-  # def update(&) : {String, Array(ValueType)}
-  #   @builder_class.new.update(with DSL.new yield)
-  # end
-
-  # def delete(&)
-  #   @builder_class.new.delete(with DSL.new yield)
-  # end
 end

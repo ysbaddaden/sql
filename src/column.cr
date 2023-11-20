@@ -12,7 +12,7 @@ class SQL
     end
 
     def table_name
-      @table.__table_as? || @table.__table_name
+      @table.table_alias? || @table.table_name
     end
   end
 end

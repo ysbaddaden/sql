@@ -3,7 +3,7 @@ class SQL
     include Operators
 
     getter lhs : Expression
-    getter rhs : Array(ValueType) | Builder
+    getter rhs : Array(ValueType) | Proc(Nil)
     getter operator : String
 
     def initialize(@lhs, @operator, @rhs)

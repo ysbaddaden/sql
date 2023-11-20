@@ -16,6 +16,10 @@ class SQL
       BinaryOperation.new(self, "/", other)
     end
 
+    def //(other : Expression) : BinaryOperation
+      BinaryOperation.new(self, "DIV", other)
+    end
+
     def <(other : Expression) : BinaryOperation
       BinaryOperation.new(self, "<", other)
     end
@@ -56,7 +60,7 @@ class SQL
       InOperation.new(self, "IN", [*other] of ValueType)
     end
 
-    def in(other : Builder) : InOperation
+    def in(&other : Proc(Nil)) : InOperation
       InOperation.new(self, "IN", other)
     end
 
@@ -64,7 +68,7 @@ class SQL
       InOperation.new(self, "NOT IN", [*other] of ValueType)
     end
 
-    def not_in(other : Builder) : InOperation
+    def not_in(&other : Proc(Nil)) : InOperation
       InOperation.new(self, "NOT IN", other)
     end
 
@@ -83,7 +87,7 @@ class SQL
   end
 end
 
-require "./function"
+require "./functions"
 require "./binary_operation"
 require "./in_operation"
 require "./unary_operation"

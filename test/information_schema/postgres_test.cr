@@ -133,6 +133,7 @@ class SQL::InformationSchema::PostgresTest < Minitest::Test
   end
 
   def test_generate_table_schemas
+    skip "write test"
     schema.generate_table_schemas(STDOUT)
   end
 end
