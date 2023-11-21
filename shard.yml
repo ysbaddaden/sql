@@ -14,8 +14,8 @@ development_dependencies:
   mysql:
     github: crystal-lang/crystal-mysql
   pg:
-    github: ysbaddaden/crystal-pg # will/crystal-pg
-    branch: patch-1
+    github: will/crystal-pg
+    branch: master
   sqlite3:
     github: crystal-lang/crystal-sqlite3
 
