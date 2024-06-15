@@ -1,5 +1,6 @@
 require "minitest/autorun"
 require "../src/sql"
+require "../src/query/builder/*"
 
 class Minitest::Test
   # Tests assume PostgreSQL by default. Individual tests may test other
