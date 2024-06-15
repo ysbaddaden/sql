@@ -1,6 +1,6 @@
 require "./operators"
 
-class SQL
+class SQL::Query
   class Function
     include Operators
 
@@ -14,7 +14,7 @@ class SQL
       Over.new(self, partition)
     end
 
-    def to_sql(builder : Builder) : Nil
+    def to_sql(builder : Builder::Generic) : Nil
       builder.sql << name
       builder.sql << '('
       if args = args?
@@ -34,7 +34,7 @@ class SQL
       super :substring
     end
 
-    def to_sql(builder : Builder) : Nil
+    def to_sql(builder : Builder::Generic) : Nil
       builder.sql << @name << '('
 
       if start = @start
@@ -60,7 +60,7 @@ class SQL
       super :position
     end
 
-    def to_sql(builder : Builder) : Nil
+    def to_sql(builder : Builder::Generic) : Nil
       builder.sql << @name << '('
       builder.sql << @substring
       builder.sql << " IN "
@@ -69,7 +69,7 @@ class SQL
     end
   end
 
-  class Over
+  struct Over
     getter fn : Function
     getter partition : Proc(Nil)
 
@@ -84,13 +84,13 @@ class SQL
     macro register_function(name, *, args = true)
       {% if args %}
         @[AlwaysInline]
-        def {{name.id}}(*args) : Function
-          Function.new({{name.id.symbolize}}, [*args] of Expression)
+        def {{name.id}}(*args) : ::SQL::Query::Function
+          ::SQL::Query::Function.new({{name.id.symbolize}}, [*args] of ::SQL::Query::Expression)
         end
       {% else %}
         @[AlwaysInline]
-        def {{name.id}} : Function
-          Function.new({{name.id.symbolize}})
+        def {{name.id}} : ::SQL::Query::Function
+          ::SQL::Query::Function.new({{name.id.symbolize}})
         end
       {% end %}
     end
@@ -103,7 +103,7 @@ class SQL
     register_function :bit_length
     register_function :bit_or
     register_function :bit_xor
-    register_function :count      # TODO: COUNT(DISTINCT ...)
+    register_function :count # TODO: COUNT(DISTINCT ...)
     register_function :max
     register_function :min
     register_function :sum

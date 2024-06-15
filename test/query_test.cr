@@ -1,27 +1,37 @@
 require "./test_helper"
 
 class SQL::BuilderTest < Minitest::Test
+  include SQL::Query::Functions
+  include SQL::Query::Helpers
   include SQL::Schemas
-  include SQL::Functions
 
   register_function :date_trunc
+  register_function :very_expensive_function
 
   def test_with
-    assert_format %(WITH "s" AS (SELECT *) SELECT * FROM "s"), do |q|
+    assert_format %(WITH "s" AS (SELECT *) SELECT * FROM "s") do |q|
       q
         .with(:s) { q.select(:*) }
         .select(:*)
         .from(:s)
     end
 
-    assert_format %(WITH "s" AS (SELECT *), "t" AS (SELECT *) SELECT * FROM "s", "t"), do |q|
+    assert_format %(WITH "s" AS (SELECT *), "t" AS (SELECT *) SELECT * FROM "s", "t") do |q|
       q
         .with(
-          {:s, -> { q.select(:*) }},
-          {:t, -> { q.select(:*) }},
+          {:s, ->{ q.select(:*) }},
+          {:t, ->{ q.select(:*) }},
         )
         .select(:*)
         .from(:s, :t)
+    end
+
+    assert_format %(WITH "w" AS (SELECT "key", very_expensive_function("val") AS "f" FROM "some_table") SELECT * FROM "w"."w1" JOIN "w"."w2" ON "w1"."f" = "w2"."f") do |q|
+      q.with(:w) { q.select({:key => nil, very_expensive_function(:val) => :f}).from(:some_table) }
+        .select(:*)
+        .from(column(:w, :w1))
+        .join(column(:w, :w2))
+        .on(column(:w1, :f) == column(:w2, :f))
     end
   end
 
@@ -30,7 +40,7 @@ class SQL::BuilderTest < Minitest::Test
     assert_format %(SELECT "user_id"), &.select(:user_id)
     assert_format %(SELECT USeRs.*) { |q| q.select(q.raw("USeRs.*")) }
 
-    ## NOTE: I'm not convinced by the syntax `select: users` to `"users".*`
+    # NOTE: I'm not convinced by the syntax `select: users` to `"users".*`
     assert_format %(SELECT "users".*), &.select(Users)
     assert_format %(SELECT "users".*, "count_all"), &.select({Users, :count_all})
 
@@ -430,16 +440,16 @@ class SQL::BuilderTest < Minitest::Test
 
     assert_format %(UPDATE "groups" SET "name" = $1, "updated_at" = now(), "counter" = DEFAULT), ["Leos"] do |q|
       q.update(Groups).set({
-        :name => "Leos",
+        :name       => "Leos",
         :updated_at => q.now,
-        :counter => :default
+        :counter    => :default,
       })
     end
 
     updated = Time.utc
     assert_format %(UPDATE "groups" SET "name" = $1, "updated_at" = $2), ["Bears", updated] do |q|
       q.update(Groups).set({
-        Groups.name => "Bears",
+        Groups.name       => "Bears",
         Groups.updated_at => updated,
       })
     end
@@ -478,7 +488,7 @@ class SQL::BuilderTest < Minitest::Test
     assert_format %(DELETE FROM "groups" WHERE ("groups"."group_id" = $1) AND ("groups"."counter" < $2)), [123, 2] do |q|
       q.delete_from(Groups).where([
         Groups.group_id == 123,
-        Groups.counter < 2
+        Groups.counter < 2,
       ])
     end
   end

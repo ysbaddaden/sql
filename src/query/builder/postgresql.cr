@@ -1,5 +1,18 @@
-class SQL
-  class Builder::SQLite3 < Builder
+require "./generic"
+
+module SQL::Query::Builder
+  class PostgreSQL < Generic
+    protected def to_sql_statement_placeholder(value : ValueType) : Nil
+      if index = @args.index(value)
+        @sql << '$'
+        @sql << (index + 1)
+      else
+        @args << value
+        @sql << '$'
+        @sql << @args.size
+      end
+    end
+
     protected def to_sql_on_conflict(on_conflict) : Nil
       @sql << " ON CONFLICT"
 
@@ -54,9 +67,10 @@ class SQL
     end
 
     protected def to_sql_on_duplicate_key_update(update) : Nil
-      raise "SQLite3 doesn't support ON DUPLICATE KEY UPDATE clauses"
+      raise "PostgreSQL doesn't support ON DUPLICATE KEY UPDATE clauses"
     end
   end
 
-  Builder.register("sqlite3", Builder::SQLite3)
+  Builder.register("postgres", PostgreSQL)
+  Builder.register("postgresql", PostgreSQL)
 end

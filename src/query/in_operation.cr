@@ -1,9 +1,9 @@
-class SQL
-  class BinaryOperation
+class SQL::Query
+  class InOperation
     include Operators
 
     getter lhs : Expression
-    getter rhs : Expression
+    getter rhs : Array(ValueType) | Proc(Nil)
     getter operator : String
 
     def initialize(@lhs, @operator, @rhs)

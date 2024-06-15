@@ -1,6 +1,28 @@
 # SQL
 
-A DSL to generate SQL queries for different database servers.
+Different modules revolving handle SQL queries.
+
+- `SQL::Query` to generate SQL queries;
+- `SQL::InformationSchema` to introspect on your database;
+- `SQL::Migrate` to migrate your database.
+
+There might be more modules in the future, for example a tokenizer to lex a SQL
+query srting into tokens, and maybe a full blown parser.
+
+## Status
+
+The SQL shard is in preliminary alpha. The basis shouldn't change much anymore,
+but a lot still has to be evaluated in real life situations.
+
+Supported database server flavors:
+
+- MySQL / MariaDB
+- PostgreSQL
+- SQLite3
+
+## SQL::Query
+
+DSL to generate SQL queries for different database servers.
 
 Goals:
 
@@ -14,21 +36,12 @@ Goals:
 
 - Feel like writing SQL in plain Crystal.
 
+- Be the foundation for an ORM, Repo or plain SQL queries.
+
 Non Goals:
 
-- Executing queries.
-- Becoming an ORM.
-
-## Status
-
-The SQL shard is in preliminary alpha. The basis shouldn't change much anymore,
-but a lot still has to be evaluated in real life situations.
-
-Supported database server flavors:
-
-- MySQL / MariaDB
-- PostgreSQL
-- SQLite3
+- Execute queries.
+- Become an ORM.
 
 ## Queries
 
@@ -36,9 +49,9 @@ You can write any query:
 
 ```crystal
 require "sql"
-require "sql/builder/posgres"
+require "sql/query/builder/posgresql"
 
-sql = SQL.new("postgres://")
+sql = SQL.query("postgres://")
 sql.format { |q| q.select(:*).from(:users).where(q.column(:group_id) == 1) }
 # => {%(SELECT * FROM "users" WHERE "group_id" = $1), [1]}
 ```
@@ -50,7 +63,7 @@ the `#column` method, along with other helpers (`#raw`, `#operator`).
 class UserRepo
   include SQL::Helpers
 
-  def get(id)
+  def get(id : Int32)
     query, args = sql.format &.select(:id, :name).from(:users).where(column(:id) == id)
     db.query_one(query, args: args, as: {Int32, String})
   end
@@ -58,31 +71,29 @@ end
 ```
 
 You can usually use a Symbol to refer to a table or column name, but there are
-cases where we need an object, for example to build a WHERE or HAVING condition
-and other cases. In these cases, we can define a SQL schema to target tables and
-table columns in a much more expressive way.
+cases where we need an object, for example to build a WHERE or HAVING condition.
+In these cases, we can define a SQL schema to target tables and table columns in
+a much more expressive way.
 
 ### Schemas
 
 You can define the schema of your database tables, so you can avoid the use of
 the column helpers, as well as using aliases more easily. Work is underway to
-have the schemas automatically generated from your database.
+have these schemas automatically generated from your database.
 
 ```crystal
-class SQL
-  module Schemas
-    struct Users < Table
-      table_name :users
-      column :id
-      column :group_id
-      column :name
-    end
+module MySchemas
+  struct Users < SQL::Query::Table
+    table_name :users
+    column :id
+    column :group_id
+    column :name
+  end
 
-    struct Groups < Table
-      table_name :groups
-      column :id
-      column :name
-    end
+  struct Groups < SQL::Query::Table
+    table_name :groups
+    column :id
+    column :name
   end
 end
 ```
@@ -90,18 +101,18 @@ end
 Then you can:
 
 ```crystal
-require "db"
+require "pg"
 require "sql"
-require "sql/builder/postgres"
+require "sql/query/builder/postgresql"
 require "./schemas"
 
 db = DB.open("postgres://")
-sql = SQL.new("postgres://")
+sql = SQL.query("postgres://")
 
 # bring schemas and helpers into the current scope:
-include SQL::Functions
-include SQL::Helpers
-include SQL::Schemas
+include SQL::Query::Functions
+include SQL::Query::Helpers
+include MySchemas
 
 query, args = sql.format do |q|
   q.select(Users.id, Users.name)
@@ -129,6 +140,19 @@ end
 # => {%(SELECT "users"."id", FROM "users" WHERE "users"."group_id" IN (SELECT "groups"."id" FROM "groups" WHERE "groups".created_at < $1), [1.month.ago]}
 ```
 
+The SQL is generated as the methods are called, so you must define the sub-query
+right into the block (as you would in SQL); you can't assign it to a variable
+and return that variable from the block. For example the following will generate
+invalid SQL:
+
+```crystal
+sql.format do |q|
+  group_ids = q.select(:id).from(:groups).where(Groups.created_at < 1.month.ago)
+  q.select(:*).from(Users).where(Users.group_id.in { groups_ids })
+end
+# => {%(SELECT "groups"."id" FROM "groups" WHERE "groups".created_at < $1SELECT "users"."id", FROM "users" WHERE "users"."group_id" IN (), [1.month.ago]}
+```
+
 Functions:
 
 ```crystal
@@ -148,12 +172,31 @@ end
 # => {%(SELECT "u"."id" AS "uid", "u"."name", length("u"."name") AS "len" FROM "users" AS "u" WHERE "u"."group_id" == $1), [5]}
 ```
 
-Lots more is possible! You can see lots of examples in the `test` folder or by
-reading the main `src/builder.cr` file.
+With:
 
-## Information Schema
+```crystal
+register_function :very_expensive_function
+
+sql.format do |q|
+  q.with(:w) { q.select({:key => nil, very_expensive_function(:val) => :f}).from(:some_table) }
+    .select(:*)
+    .from(column(:w, as: w1))
+    .join(column(:w, as: :w2))
+    .on(raw("w1.f") == raw("w2.f"))
+end
+# => {%(WITH "w" AS (SELECT "key", very_expensive_function("val") as "f" FROM "some_table") SELECT * FROM "w" AS "w1" JOIN "w" AS "w2" ON w1.f = w2.f), []}
+```
+
+Lots more is possible! You can see lots of examples in the `test` folder or by
+reading the documentation for `SQL::Query::Builder::Generic`.
+
+## SQL::InformationSchema
 
 TODO: missing docs (see `see/information_schema.cr`).
+
+## SQL::Migrate
+
+TODO: missing docs (see `src/migrate/cli.cr` and `bin/migrate.cr`).
 
 ## License
 

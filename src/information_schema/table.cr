@@ -1,6 +1,6 @@
 require "db/serializable"
 
-class SQL
+module SQL
   abstract class InformationSchema
     struct Table
       include DB::Serializable

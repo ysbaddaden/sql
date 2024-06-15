@@ -1,8 +1,8 @@
 require "../test_helper"
 
-class SQL::Builder::SQLite3Test < Minitest::Test
-  def sql
-    SQL.new("sqlite3://")
+class SQL::Builder::PostgreSQLTest < Minitest::Test
+  def sql_query
+    SQL::Query.new("postgresql://")
   end
 
   def test_quotes
@@ -16,14 +16,14 @@ class SQL::Builder::SQLite3Test < Minitest::Test
   end
 
   def test_statement_placeholders
-    assert_format %(SELECT "name" FROM "users" WHERE "id" = ?), [1] do |q|
+    assert_format %(SELECT "name" FROM "users" WHERE "id" = $1), [1] do |q|
       q.select(:name).from(:users).where(q.column(:id) == 1)
     end
 
     created = Time.utc
-    assert_format %(INSERT INTO "users" VALUES (?, ?)), ["Julien", created] do |q|
+    assert_format %(INSERT INTO "users" VALUES ($1, $2)), ["Julien", created] do |q|
       q.insert_into(:users).values({
-        {"Julien", created}
+        {"Julien", created},
       })
     end
   end

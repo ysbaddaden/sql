@@ -1,7 +1,7 @@
 require "minitest/autorun"
 require "sqlite3"
 require "../../src/information_schema"
-require "../../src/builder/sqlite3"
+require "../../src/query/builder/sqlite3"
 
 class SQL::InformationSchema::SQLite3Test < Minitest::Test
   DATABASE_URL = "sqlite3:./sql_test.db"

@@ -1,4 +1,4 @@
-class SQL
+class SQL::Query
   module Helpers
     # Wraps a raw SQL expression. For example:
     #
@@ -9,10 +9,10 @@ class SQL
       Raw.new(sql)
     end
 
-    # Wraps a column table. This can be used to refer to a column alias for
-    # example.
-    def column(name : Symbol) : Wrap
-      Wrap.new(name)
+    # Wraps a column table with up to 3 segments (column, table.column or
+    # schema.table.column). It can optionally take an alias.
+    def column(a : Symbol, b : Symbol? = nil, c : Symbol? = nil, *, as aliased : Symbol? = nil) : Column
+      Column.new(a, b, c, as: aliased)
     end
 
     # Custom binary operator. For example:

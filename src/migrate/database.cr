@@ -16,6 +16,8 @@ class SQL::Migrate::Database
       uri.path = uri.user.to_s
     when "mysql"
       # TODO
+    when "sqlite3"
+      # TODO
     end
     @url = uri.to_s
   end

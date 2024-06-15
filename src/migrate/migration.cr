@@ -41,7 +41,7 @@ class SQL::Migrate::Migration
 
       if line =~ PATTERN_RE
         case $1
-        when "up" then @up = queries = [] of String
+        when "up"   then @up = queries = [] of String
         when "down" then @down = queries = [] of String
         end
       elsif line.starts_with?("--")

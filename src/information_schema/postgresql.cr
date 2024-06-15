@@ -1,14 +1,14 @@
 require "../information_schema"
 require "../sql"
 
-class SQL
+module SQL
   class InformationSchema::PostgreSQL < InformationSchema
-    include Helpers
+    include Query::Helpers
 
     def tables : Array(InformationSchema::Table)
-      sql, args = @sql.format do |q|
+      sql, args = @query.format do |q|
         q.select(:table_catalog, :table_schema, :table_name, :table_type)
-          .from({:information_schema, :tables})
+          .from(column(:information_schema, :tables))
           .where((column(:table_schema) == "public")
             .and(column(:table_catalog) == database_name)
             .and(column(:table_name) != "schema_migrations"))
@@ -18,9 +18,9 @@ class SQL
     end
 
     def columns(table_name : String) : Array(InformationSchema::Column)
-      sql, args = @sql.format do |q|
+      sql, args = @query.format do |q|
         q.select(:*)
-          .from({:information_schema, :columns})
+          .from(column(:information_schema, :columns))
           .where((column(:table_schema) == "public")
             .and(column(:table_catalog) == database_name)
             .and(column(:table_name) == table_name))

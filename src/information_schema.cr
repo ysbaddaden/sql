@@ -2,7 +2,7 @@ require "db"
 require "./sql"
 require "./information_schema/*"
 
-class SQL
+module SQL
   abstract class InformationSchema
     @@registers = {} of String => InformationSchema.class
 
@@ -26,11 +26,11 @@ class SQL
 
     def initialize(@uri : URI)
       @db = DB.open(@uri)
-      @sql = SQL.new(@uri)
+      @query = SQL::Query.new(@uri)
     end
 
     def driver_name : String
-      @uri.scheme.not_nil!
+      @uri.scheme.not_nil!("Expected URI to specify a driver")
     end
 
     def database_name : String
@@ -55,14 +55,12 @@ class SQL
         io << "    struct " << klass_name << " < ::SQL::Table\n"
         io << "      table_name " << table.name << '\n'
 
-        columns(table.name).each_with_index do |column, j|
+        columns(table.name).each do |column|
           io << "      column " << column.name << '\n'
         end
 
         io << "    end\n"
       end
-
-
 
       io << "  end\n"
       io << "end\n"

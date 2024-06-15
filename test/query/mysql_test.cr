@@ -1,8 +1,8 @@
 require "../test_helper"
 
 class SQL::Builder::MySQLTest < Minitest::Test
-  def sql
-    SQL.new("mysql://")
+  def sql_query
+    SQL::Query.new("mysql://")
   end
 
   def test_quotes
@@ -23,7 +23,7 @@ class SQL::Builder::MySQLTest < Minitest::Test
     created = Time.utc
     assert_format %(INSERT INTO `users` VALUES (?, ?)), ["Julien", created] do |q|
       q.insert_into(:users).values({
-        {"Julien", created}
+        {"Julien", created},
       })
     end
   end

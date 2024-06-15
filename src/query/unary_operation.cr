@@ -1,12 +1,11 @@
-class SQL
-  class InOperation
+class SQL::Query
+  class UnaryOperation
     include Operators
 
-    getter lhs : Expression
-    getter rhs : Array(ValueType) | Proc(Nil)
+    getter expression : Expression
     getter operator : String
 
-    def initialize(@lhs, @operator, @rhs)
+    def initialize(@expression, @operator)
     end
 
     def and(other : Expression) : BinaryOperation

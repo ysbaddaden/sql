@@ -1,4 +1,4 @@
-class SQL
+class SQL::Query
   abstract struct Table
     getter? table_alias : Symbol?
 
@@ -37,12 +37,12 @@ class SQL
     macro column(name, method_name = nil)
       {% method_name ||= name.underscore %}
 
-      def self.{{method_name.id}} : Column
-        ::SQL::Column.new({{@type}}.new, {{name.id.symbolize}})
+      def self.{{method_name.id}}(as aliased : Symbol? = nil) : ::SQL::Query::Column
+        ::SQL::Query::Column.new(table_name, {{name.id.symbolize}}, as: aliased)
       end
 
-      def {{method_name.id}} : Column
-        ::SQL::Column.new(self, {{name.id.symbolize}})
+      def {{method_name.id}}(as aliased : Symbol? = nil) : ::SQL::Query::Column
+        ::SQL::Query::Column.new(table_alias? || table_name, {{name.id.symbolize}}, as: aliased)
       end
     end
   end

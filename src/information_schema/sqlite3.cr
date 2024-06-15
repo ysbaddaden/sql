@@ -1,18 +1,17 @@
 require "../information_schema"
 require "../sql"
 
-class SQL
+module SQL
   class InformationSchema::SQLite3 < InformationSchema
-    include Helpers
-    include Functions
+    include Query::Helpers
+    include Query::Functions
 
     register_function :pragma_table_info
-    # register_function :pragma_table_xinfo
 
     def tables : Array(InformationSchema::Table)
       tables = [] of InformationSchema::Table
 
-      sql, args = @sql.format do |q|
+      sql, args = @query.format do |q|
         q.select(:tbl_name)
           .from(:sqlite_master)
           .where(column(:type) == "table")
@@ -29,7 +28,7 @@ class SQL
       columns = [] of InformationSchema::Column
 
       # TODO: use pragma_table_xinfo to list generated/hidden columns
-      sql, args = @sql.format do |q|
+      sql, args = @query.format do |q|
         q.select(:name, :cid, :dflt_value, :notnull, :type)
           .from(pragma_table_info(table_name))
           .order_by(:cid)

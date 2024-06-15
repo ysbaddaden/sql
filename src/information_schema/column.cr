@@ -1,6 +1,6 @@
 require "db/serializable"
 
-class SQL
+module SQL
   abstract class InformationSchema
     struct Column
       include DB::Serializable
@@ -109,6 +109,7 @@ class SQL
         end
       end
 
+      # ameba:disable Metrics/CyclomaticComplexity
       def to_crystal_type
         if equals?(@data_type, "int", "integer", "bigint", "tinyint", "smallint", "mediumint")
           case {@numeric_precision_radix, @numeric_precision}

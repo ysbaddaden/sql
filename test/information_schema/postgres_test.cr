@@ -1,7 +1,7 @@
 require "minitest/autorun"
 require "pg"
 require "../../src/information_schema"
-require "../../src/builder/postgresql"
+require "../../src/query/builder/postgresql"
 
 class SQL::InformationSchema::PostgresTest < Minitest::Test
   DATABASE_URL = "postgres://postgres:secret@localhost/sql_test"

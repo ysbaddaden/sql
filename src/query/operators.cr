@@ -1,4 +1,4 @@
-class SQL
+class SQL::Query
   module Operators
     def +(other : Expression) : BinaryOperation
       BinaryOperation.new(self, "+", other)

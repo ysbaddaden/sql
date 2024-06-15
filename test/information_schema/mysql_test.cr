@@ -1,7 +1,7 @@
 require "minitest/autorun"
 require "mysql"
 require "../../src/information_schema"
-require "../../src/builder/mysql"
+require "../../src/query/builder/mysql"
 
 class SQL::InformationSchema::MySQLTest < Minitest::Test
   DATABASE_URL = "mysql://root:secret@localhost/sql_test"

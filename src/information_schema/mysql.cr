@@ -1,14 +1,14 @@
 require "../information_schema"
 require "../sql"
 
-class SQL
+module SQL
   class InformationSchema::MySQL < InformationSchema
-    include Helpers
+    include Query::Helpers
 
     def tables : Array(InformationSchema::Table)
-      sql, args = @sql.format do |q|
+      sql, args = @query.format do |q|
         q.select(:table_catalog, :table_schema, :table_name, :table_type)
-          .from({:information_schema, :tables})
+          .from(column(:information_schema, :tables))
           .where((column(:table_schema) == database_name).and(column(:table_name) != "schema_migrations"))
           .order_by(:table_name)
       end
@@ -36,9 +36,9 @@ class SQL
         :collation_name,
         :column_type,
       }
-      sql, args = @sql.format do |q|
+      sql, args = @query.format do |q|
         q.select(columns)
-          .from({:information_schema, :columns})
+          .from(column(:information_schema, :columns))
           .where((column(:table_schema) == database_name).and(column(:table_name) == table_name))
           .order_by(:ordinal_position)
       end

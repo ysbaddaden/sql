@@ -1,24 +1,11 @@
-class SQL
+require "../builder"
+
+module SQL::Query::Builder
   # TODO: WINDOW
   # TODO: SET column = DEFAULT
   # TODO: SET (column, ...) = (expression | DEFAULT)
   # TODO: SET (column, ...) = (sub-select)
-  abstract class Builder
-    @@quote_character = '"'
-    @@registers = {} of String => Builder.class
-
-    def self.register(name : String, klass : Builder.class)
-      @@registers[name] = klass
-    end
-
-    def self.fetch(name : String) : Builder.class
-      @@registers[name]?.not_nil! "Unknown SQL driver: #{name}"
-    end
-
-    def self.fetch(name : Nil) : NoReturn
-      name.not_nil! "Unknown SQL driver: #{name}"
-    end
-
+  class Generic
     # The IO object to generate the SQL string to.
     getter sql : String::Builder
 
@@ -96,9 +83,7 @@ class SQL
     protected def to_sql_select(column)
       case column
       in Column
-        quote column.table_name
-        @sql << '.'
-        quote column.name
+        column.to_sql(self)
       in Table, Table.class
         quote column.table_name
         @sql << '.' << '*'
@@ -109,7 +94,7 @@ class SQL
       end
     end
 
-    def to_sql_select_as(name)
+    protected def to_sql_select_as(name)
       return unless name
       @sql << " AS "
       quote name
@@ -121,26 +106,26 @@ class SQL
       self
     end
 
-    def join(table : Table.class|Table|Symbol) : self
+    def join(table : Table.class | Table | Symbol | Column) : self
       @sql << " JOIN "
       to_sql table
       self
     end
 
-    def inner_join(table : Table.class|Table|Symbol) : self
+    def inner_join(table : Table.class | Table | Symbol | Column) : self
       @sql << " INNER JOIN "
       to_sql table
       self
     end
 
     {% for method in %w[left right full] %}
-      def {{method.id}}_join(table : Table.class|Table|Symbol) : self
+      def {{method.id}}_join(table : Table.class | Table | Symbol | Column) : self
         @sql << " {{method.upcase.id}} JOIN "
         to_sql table
         self
       end
 
-      def {{method.id}}_outer_join(table : Table.class|Table|Symbol) : self
+      def {{method.id}}_outer_join(table : Table.class | Table | Symbol | Column) : self
         @sql << " {{method.upcase.id}} OUTER JOIN "
         to_sql table
         self
@@ -360,7 +345,7 @@ class SQL
       on_conflict_do_update(columns)
     end
 
-    def on_conflict(column : Column | Symbol | Wrap | Raw | Nil = nil) : self
+    def on_conflict(column : Column | Symbol | Raw | Nil = nil) : self
       @sql << " ON CONFLICT"
 
       if column
@@ -372,7 +357,7 @@ class SQL
       self
     end
 
-    def on_constraint(name : Symbol | Wrap | Raw) : self
+    def on_constraint(name : Symbol | Raw) : self
       @sql << " ON CONSTRAINT "
       to_sql name
       self
@@ -417,7 +402,7 @@ class SQL
     #   TODO: upsert
     # end
 
-    def update(table : Table.class|Table|Symbol) : self
+    def update(table : Table.class | Table | Symbol) : self
       @sql << "UPDATE "
       to_sql table
       self
@@ -514,12 +499,12 @@ class SQL
       end
     end
 
-    protected def to_sql_column_name(column : Raw | Symbol | Wrap) : Nil
+    protected def to_sql_column_name(column : Raw | Symbol | Column) : Nil
       to_sql column
     end
 
     protected def to_sql_column_name(column : Column) : Nil
-      quote column.name
+      quote column.aliased? || column.name[2] || column.name[1] || column.name[0]
     end
 
     protected def to_sql(expressions : Enumerable) : Nil
@@ -577,9 +562,9 @@ class SQL
     protected def to_sql(table : Table) : Nil
       quote table.table_name
 
-      if _as = table.table_alias?
+      if aliased = table.table_alias?
         @sql << " AS "
-        quote _as
+        quote aliased
       end
     end
 
@@ -588,9 +573,7 @@ class SQL
     end
 
     protected def to_sql(column : Column) : Nil
-      quote column.table_name
-      @sql << '.'
-      quote column.name
+      column.to_sql(self)
     end
 
     protected def to_sql(value : ValueType) : Nil
@@ -606,40 +589,32 @@ class SQL
       @args << value
     end
 
-    protected def to_sql(name : {Symbol, Symbol}) : Nil
-      quote name[0]
-      @sql << '.'
-      quote name[1]
-    end
-
-    protected def to_sql(name : {Symbol, Symbol, Symbol}) : Nil
-      quote name[0]
-      @sql << '.'
-      quote name[1]
-      @sql << '.'
-      quote name[2]
-    end
-
     protected def to_sql(name : Symbol) : Nil
       quote name
-    end
-
-    protected def to_sql(column : Wrap) : Nil
-      quote column.name
     end
 
     protected def to_sql(raw : Raw) : Nil
       @sql << raw.sql
     end
 
-    protected def quote(name : Symbol) : Nil
+    protected def quote(name : Symbol | String) : Nil
       if name == :*
         @sql << '*'
       else
-        @sql << @@quote_character
-        @sql << name.to_s.gsub(@@quote_character, "\\#{@@quote_character}")
-        @sql << @@quote_character
+        @sql << quote_character
+        @sql << name.to_s.gsub(quote_character, "\\#{quote_character}")
+        @sql << quote_character
       end
+    end
+
+    @[AlwaysInline]
+    protected def quote_character
+      '"'
+    end
+
+    @[AlwaysInline]
+    protected def escaped_quote_character
+      %(\\")
     end
 
     # Avoid to englob the outer-most expression between parenthesis, but makes
